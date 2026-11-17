@@ -1,7 +1,8 @@
 # Blackjack Trainer
 
 A Python project for blackjack practice. The current implementation provides
-playing-card and shoe models, hand evaluation, and a command-line entry point. Interactive
+playing-card and shoe models, hand evaluation, a basic strategy engine, and a
+command-line entry point. Interactive
 training modes are not yet implemented.
 
 ## Features
@@ -14,6 +15,8 @@ training modes are not yet implemented.
 - Explicit exhaustion errors and full-shoe reshuffling.
 - Hand totals with automatic ace adjustment (1 or 11).
 - Soft/hard classification, pair detection, blackjack, and bust detection.
+- Hit, Stand, Double, and Split recommendations for a fixed H17/DAS rule preset.
+- Per-hand action availability and locked split-ace handling.
 
 ## Requirements
 
@@ -98,6 +101,45 @@ Pair detection requires exactly two cards. All ten-valued ranks are grouped
 as `"10"`, so J/K counts as a pair for this model. Pair detection does not
 check whether a split is allowed under a particular table's rules.
 
+## Basic strategy
+
+The engine uses a total-dependent multi-deck policy for **H17 / DAS / no
+surrender**: the dealer hits soft 17, doubling after a split is allowed, and
+surrender is unavailable. It assumes dealer peek and doubling on any first
+two cards. The preset is intended for the default six-deck shoe; changing the
+shoe size does not change the strategy chart.
+
+```python
+from blackjack_trainer.cards import Card
+from blackjack_trainer.strategy import basic_strategy
+
+hand = [Card("A", "♠"), Card("7", "♥")]
+upcard = Card("2", "♣")
+action = basic_strategy(hand, upcard)
+print(action.value, action.label)  # D Double
+
+action = basic_strategy(hand, upcard, can_double=False)
+print(action.value, action.label)  # S Stand
+```
+
+The returned `Action` enum provides `HIT`, `STAND`, `DOUBLE`, and `SPLIT`, with
+codes `H`, `S`, `D`, and `P`. The engine evaluates pairs before soft and hard
+totals. It does not use the running count or remaining shoe composition.
+
+Set `can_double=False` or `can_split=False` when an action is unavailable for
+this hand. These flags do not select a different table-wide ruleset such as
+no-DAS. Hands with more than two cards cannot double or split. Unavailable
+splits fall back to total-based play; a non-splittable A/A uses Hit as an
+explicit fallback. This fallback is not an optimization for unusual rules
+allowing unrestricted play after splitting aces.
+
+After a split ace receives its one additional card, pass
+`split_aces_locked=True` to require Stand. The caller supplies this context;
+it cannot be inferred from the cards alone. A total of 21 returns Stand.
+Busted hands and hands with fewer than two cards raise `ValueError`.
+
+Reference: [Wizard of Odds: multi-deck strategy and H17 adjustments](https://wizardofodds.com/games/blackjack/strategy/4-decks/).
+
 ## Development setup
 
 From the project root, activate the project's virtual environment and install
@@ -124,11 +166,12 @@ For verbose results or a single module:
 ```bash
 python -m pytest -v
 python -m pytest tests/test_hands.py -v
+python -m pytest tests/test_strategy.py -v
 ```
 
 Pytest discovers tests in `tests/`, using the configuration in `pyproject.toml`.
-The existing tests use `unittest.TestCase` and are executed by pytest without
-conversion. Pytest 9 also supports their `subTest()` cases. New tests can use
+Card, shoe, and hand-evaluation tests use `unittest.TestCase` and are executed
+by pytest without conversion. Strategy tests use native pytest parametrization. Pytest 9 also supports their `subTest()` cases. New tests can use
 native pytest functions, plain assertions, fixtures, and parametrization.
 
 In PyCharm, select the project's `.venv` interpreter and set the default test
@@ -143,3 +186,6 @@ shoe exhaustion, seeded shuffling, and restoration of previously drawn cards.
 Hand tests cover multiple aces, soft-to-hard transitions, naturals, split hands,
 busts, and pairs. All rank combinations of up to three cards are also checked
 against an independent enumeration of ace values.
+
+Strategy tests cover hard, soft, and pair chart cells, unavailable actions,
+multicard hands, split aces, and equivalent ten-valued dealer cards.
