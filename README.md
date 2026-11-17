@@ -1,11 +1,13 @@
 # Blackjack Trainer
 
-A Python project for blackjack practice. The current implementation provides
-playing-card and shoe models, hand evaluation, a basic strategy engine, and a
-command-line entry point. Interactive
-training modes are not yet implemented.
+Practice blackjack opening decisions in the terminal. Choose Hit, Stand,
+Double, or Split, check the recommended action, and track session accuracy.
+The trainer uses a six-deck shoe and a fixed H17/DAS/no-surrender strategy.
 
 ## Features
+
+- Interactive terminal training with immediate feedback and session statistics.
+- Reproducible shuffles and optional question limits.
 
 - Immutable cards with validated ranks and suits.
 - Standard 52-card decks without jokers.
@@ -27,14 +29,47 @@ pytest, installed through the `dev` extra.
 
 ## Run
 
-From the project root:
+From the project root, with the project's virtual environment active:
 
 ```bash
 python -m blackjack_trainer
+# Explicit mode:
+python -m blackjack_trainer cli
+# A reproducible session of 20 answered questions:
+python -m blackjack_trainer cli --seed 42 --rounds 20
+# Version and command help:
 python -m blackjack_trainer --version
+python -m blackjack_trainer --help
 ```
 
-The command-line entry point displays the application name or version.
+After an editable installation, `blackjack-trainer cli` also works.
+
+| Input | Action |
+| --- | --- |
+| `H` | Hit |
+| `S` | Stand |
+| `D` | Double |
+| `P` | Split |
+| `Q` | Quit |
+| Enter after feedback | Next question |
+
+Inputs are case-insensitive. Invalid input retries the same question without
+changing the score. Each answered question is scored once. Quit, end-of-input,
+and Ctrl+C show a session summary; unanswered questions do not count.
+
+This mode trains **only the first decision**. Each question draws two player
+cards and one dealer upcard; it does not play out the chosen action or the
+dealer's hand. A natural blackjack is displayed as such and expects Stand
+under the trainer's action convention. Choosing Split on a non-pair is treated
+as an incorrect answer.
+
+The trainer reshuffles before a question if fewer than three cards remain.
+Statistics persist across reshuffles, but reset when the app restarts. Accuracy
+measures agreement with the strategy, not winnings. No files are saved by this
+mode, and future shoe cards are not printed.
+
+In PyCharm, run module `blackjack_trainer` with parameter `cli` and the project
+root as the working directory.
 
 ## Use the card and shoe models
 
@@ -167,6 +202,7 @@ For verbose results or a single module:
 python -m pytest -v
 python -m pytest tests/test_hands.py -v
 python -m pytest tests/test_strategy.py -v
+python -m pytest tests/test_training.py tests/test_cli.py -v
 ```
 
 Pytest discovers tests in `tests/`, using the configuration in `pyproject.toml`.
@@ -189,3 +225,6 @@ against an independent enumeration of ace values.
 
 Strategy tests cover hard, soft, and pair chart cells, unavailable actions,
 multicard hands, split aces, and equivalent ten-valued dealer cards.
+
+Session and CLI tests cover scoring, invalid input, quit/EOF/Ctrl+C, question
+limits, reshuffling, reproducible questions, and command-line arguments.
