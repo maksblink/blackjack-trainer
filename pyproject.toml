@@ -10,8 +10,16 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
 
+[project.optional-dependencies]
+dev = ["pytest>=9,<10"]
+
 [project.scripts]
 blackjack-trainer = "blackjack_trainer.__main__:main"
 
 [tool.setuptools.packages.find]
 include = ["blackjack_trainer*"]
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests"]
+addopts = "-ra --strict-config --strict-markers"

@@ -19,7 +19,8 @@ training modes are not yet implemented.
 
 - Python 3.10 or newer
 
-No third-party runtime dependencies are required.
+No third-party runtime dependencies are required. Development and testing use
+pytest, installed through the `dev` extra.
 
 ## Run
 
@@ -97,11 +98,45 @@ Pair detection requires exactly two cards. All ten-valued ranks are grouped
 as `"10"`, so J/K counts as a pair for this model. Pair detection does not
 check whether a split is allowed under a particular table's rules.
 
-## Tests
+## Development setup
+
+From the project root, activate the project's virtual environment and install
+the package with its development dependencies:
 
 ```bash
-python -m unittest discover -s tests -v
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
 ```
+
+On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1` instead.
+If the environment does not exist yet, create it with `python -m venv .venv`.
+
+## Tests
+
+Run all tests from the project root:
+
+```bash
+python -m pytest
+```
+
+For verbose results or a single module:
+
+```bash
+python -m pytest -v
+python -m pytest tests/test_hands.py -v
+```
+
+Pytest discovers tests in `tests/`, using the configuration in `pyproject.toml`.
+The existing tests use `unittest.TestCase` and are executed by pytest without
+conversion. Pytest 9 also supports their `subTest()` cases. New tests can use
+native pytest functions, plain assertions, fixtures, and parametrization.
+
+In PyCharm, select the project's `.venv` interpreter and set the default test
+runner to **pytest** under **Settings → Tools → Python Integrated Tools**.
+Existing unittest run configurations may need to be replaced with pytest
+configurations.
+
+Reference: [pytest's unittest compatibility](https://docs.pytest.org/en/stable/how-to/unittest.html).
 
 Tests cover card validation, deck composition, draw order and boundaries,
 shoe exhaustion, seeded shuffling, and restoration of previously drawn cards.
