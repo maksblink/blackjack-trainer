@@ -1,12 +1,13 @@
 # Blackjack Trainer
 
-Practice blackjack opening decisions in the terminal. Choose Hit, Stand,
+Practice blackjack opening decisions in the terminal or a Tkinter desktop GUI. Choose Hit, Stand,
 Double, or Split, check the recommended action, and track session accuracy.
 The trainer uses a six-deck shoe and a fixed H17/DAS/no-surrender strategy.
 
 ## Features
 
 - Interactive terminal training with immediate feedback and session statistics.
+- Desktop GUI with drawn cards, action buttons, keyboard shortcuts, and a quit confirmation.
 - Reproducible shuffles and optional question limits.
 
 - Immutable cards with validated ranks and suits.
@@ -23,6 +24,7 @@ The trainer uses a six-deck shoe and a fixed H17/DAS/no-surrender strategy.
 ## Requirements
 
 - Python 3.10 or newer
+- GUI mode: Tkinter and a graphical desktop
 
 No third-party runtime dependencies are required. Development and testing use
 pytest, installed through the `dev` extra.
@@ -33,8 +35,10 @@ From the project root, with the project's virtual environment active:
 
 ```bash
 python -m blackjack_trainer
-# Explicit mode:
+# Explicit terminal mode:
 python -m blackjack_trainer cli
+# Desktop GUI:
+python -m blackjack_trainer gui
 # A reproducible session of 20 answered questions:
 python -m blackjack_trainer cli --seed 42 --rounds 20
 # Version and command help:
@@ -70,6 +74,46 @@ mode, and future shoe cards are not printed.
 
 In PyCharm, run module `blackjack_trainer` with parameter `cli` and the project
 root as the working directory.
+
+## Desktop GUI
+
+```bash
+python -m blackjack_trainer gui
+python -m blackjack_trainer gui --seed 42 --rounds 20
+```
+
+The window shows the two player cards, the dealer upcard, feedback, and session
+statistics. Cards retain their actual suits from the shoe. Click an action or
+press `H`, `S`, `D`, or `P`. After answering, press Enter or Space to deal the
+next hand. Answer buttons are disabled after scoring, and Next is disabled
+until an answer is submitted.
+
+Press `Q` or Esc, or close the window, to see the exit confirmation and session
+summary. Canceling the dialog preserves the current question, shoe position,
+and score. With `--rounds`, the final feedback remains visible after the limit
+is reached, and further answers and deals are disabled.
+
+The GUI uses the same session and strategy engine as the terminal trainer.
+It practices opening decisions only. It does not play out hands, settle bets,
+or save session data. The default mode remains `cli` when no mode is supplied.
+The minimum window size is 820 × 680 pixels.
+
+### Check Tkinter
+
+Run this with the same interpreter used by the project:
+
+```bash
+python -m tkinter
+```
+
+A small test window should appear. On Linux, Tkinter may require a separate
+OS package matching your Python installation. For a custom Python 3.14
+interpreter, installing Tkinter for a different system Python is insufficient.
+Tkinter is not a pip dependency. Without Tkinter or a graphical display, the
+terminal mode remains available.
+
+In PyCharm, select module `blackjack_trainer`, parameter `gui`, and the project's
+`.venv` interpreter. Use the project root as the working directory.
 
 ## Use the card and shoe models
 
@@ -203,6 +247,7 @@ python -m pytest -v
 python -m pytest tests/test_hands.py -v
 python -m pytest tests/test_strategy.py -v
 python -m pytest tests/test_training.py tests/test_cli.py -v
+python -m pytest tests/test_gui_controller.py tests/test_gui.py tests/test_gui_entrypoint.py -v
 ```
 
 Pytest discovers tests in `tests/`, using the configuration in `pyproject.toml`.
@@ -228,3 +273,7 @@ multicard hands, split aces, and equivalent ten-valued dealer cards.
 
 Session and CLI tests cover scoring, invalid input, quit/EOF/Ctrl+C, question
 limits, reshuffling, reproducible questions, and command-line arguments.
+
+GUI controller tests run without Tkinter. Window callback tests require Tkinter
+but no display. The real-window smoke test is skipped when a graphical display
+is unavailable; run the suite on a desktop to exercise it.
