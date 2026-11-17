@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Virtual environments and IDE
+.venv/
+venv/
+.idea/
+*.iml
+
+# Local configuration
+.env
+.env.*
+.DS_Store
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Generated session data
+current_shoe*.txt
+.blackjack-trainer/
