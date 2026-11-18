@@ -1,5 +1,11 @@
 """Tkinter desktop interface for opening-decision practice."""
 
+from functools import lru_cache
+from pathlib import Path
+import subprocess
+
+from PIL import Image, ImageDraw, ImageFont, ImageTk
+
 import tkinter as tk
 from tkinter import messagebox, ttk
 
@@ -18,25 +24,130 @@ ACCENT = "#efcd7a"
 
 
 class CardCanvas(tk.Canvas):
-    """Draw a card using Tk primitives, without external images or fonts."""
+    """Position tightly cropped glyph images relative to the card interior."""
+
+    BASE_WIDTH = 130
+    BASE_HEIGHT = 184
+    CARD_SCALE = 0.81
+
+    # (horizontal inset, vertical inset, corner, font size, bold)
+    # Insets are measured from the card interior to visible glyph pixels.
+    # For center, x/y are signed offsets: positive means right/down.
+    TOP_RANK = (9, 9, "nw", 55, True)
+    CENTER_SUIT = (0, 0, "center", 67, False)
+    BOTTOM_RANK = (9, 9, "se", 55, True)
 
     def __init__(self, parent: tk.Misc) -> None:
-        super().__init__(parent, width=130, height=184, bg=TABLE,
-                         highlightthickness=0, borderwidth=0)
+        super().__init__(parent, width=self.BASE_WIDTH, height=self.BASE_HEIGHT,
+                         bg=TABLE, highlightthickness=0, borderwidth=0)
+        self._card: Card | None = None
+        self._images = []  # Keep PhotoImage objects alive while displayed.
+        family = "DejaVu Sans"
+        self._font_paths = {
+            False: self._find_font(family, False),
+            True: self._find_font(family, True),
+        }
+        self.bind("<Configure>", lambda _event: self._redraw())
+
+    @staticmethod
+    @lru_cache(maxsize=8)
+    def _find_font(family: str, bold: bool) -> str:
+        # Fontconfig resolves the actual desktop font on Ubuntu.
+        pattern = f"{family}:weight={'bold' if bold else 'regular'}"
+        try:
+            result = subprocess.run(
+                ["fc-match", "-f", "%{file}", pattern],
+                check=True, capture_output=True, text=True, timeout=5,
+            )
+            candidate = result.stdout.strip()
+            if candidate and Path(candidate).is_file():
+                return candidate
+        except (OSError, subprocess.SubprocessError):
+            pass
+        name = "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"
+        try:
+            return str(ImageFont.truetype(name, 20).path)
+        except OSError as error:
+            raise RuntimeError("Cannot find a font. Install fonts-dejavu-core.") from error
+
+    @staticmethod
+    @lru_cache(maxsize=256)
+    def _glyph(text: str, font_path: str, pixels: int, color: str):
+        font = ImageFont.truetype(font_path, pixels)
+        left, top, right, bottom = font.getbbox(text)
+        # Render with padding, then crop by actual nontransparent pixels.
+        padding = 4
+        mask = Image.new("L", (max(1, right - left) + 2 * padding,
+                               max(1, bottom - top) + 2 * padding))
+        ImageDraw.Draw(mask).text(
+            (padding - left, padding - top), text, font=font, fill=255,
+        )
+        bounds = mask.getbbox()
+        if bounds is None:
+            raise ValueError(f"The card glyph has no visible pixels: {text!r}")
+        mask = mask.crop(bounds)
+        image = Image.new("RGBA", mask.size, color)
+        image.putalpha(mask)
+        return image
 
     def show(self, card: Card) -> None:
+        self._card = card
+        self._redraw()
+
+    def _redraw(self) -> None:
         self.delete("all")
-        self.create_rectangle(10, 10, 126, 180, fill="#09382c", outline="")
-        self.create_rectangle(5, 5, 121, 175, fill="#faf8f0", outline="#ddd9cd", width=2)
+        self._images.clear()
+        if self._card is None:
+            return
+        card = self._card
+        width, height = self.winfo_width(), self.winfo_height()
+        if width <= 1 or height <= 1:
+            width, height = self.BASE_WIDTH, self.BASE_HEIGHT
+        scale = min(width / self.BASE_WIDTH, height / self.BASE_HEIGHT) * self.CARD_SCALE
+        offset_x = (width - self.BASE_WIDTH * scale) / 2
+        offset_y = (height - self.BASE_HEIGHT * scale) / 2
+
+        def point(x, y):
+            return offset_x + x * scale, offset_y + y * scale
+
+        self.create_rectangle(*point(10, 10), *point(126, 180),
+                              fill="#09382c", outline="")
+        # Explicit border and interior: the interior bounds also define insets.
+        left, top = (round(v) for v in point(5, 5))
+        right, bottom = (round(v) for v in point(121, 175))
+        border = max(1, round(scale))
+        self.create_rectangle(left, top, right, bottom,
+                              fill="#ddd9cd", outline="")
+        left, top = left + border, top + border
+        right, bottom = right - border, bottom - border
+        self.create_rectangle(left, top, right, bottom,
+                              fill="#faf8f0", outline="")
         color = "#b33142" if card.suit in ("♥", "♦") else "#1b2b31"
-        self.create_text(18, 20, text=card.rank, anchor="nw", fill=color,
-                         font=("TkDefaultFont", 18, "bold"))
-        self.create_text(20, 49, text=card.suit, anchor="nw", fill=color,
-                         font=("TkDefaultFont", 17))
-        self.create_text(64, 92, text=card.suit, fill=color,
-                         font=("TkDefaultFont", 42))
-        self.create_text(108, 157, text=card.rank, anchor="se", fill=color,
-                         font=("TkDefaultFont", 18, "bold"))
+
+        def draw_glyph(value, layout):
+            x, y, anchor, size, bold = layout
+            image = self._glyph(value, self._font_paths[bold],
+                                max(1, round(size * scale)), color)
+            photo = ImageTk.PhotoImage(image, master=self)
+            self._images.append(photo)
+            dx, dy = round(x * scale), round(y * scale)
+            if anchor == "nw":
+                position = left + dx, top + dy
+            elif anchor == "ne":
+                position = right - dx, top + dy
+            elif anchor == "sw":
+                position = left + dx, bottom - dy
+            elif anchor == "se":
+                position = right - dx, bottom - dy
+            elif anchor == "center":
+                position = round((left + right) / 2) + dx, round((top + bottom) / 2) + dy
+            else:
+                raise ValueError(f"Unsupported card anchor: {anchor}")
+            self.create_image(*position, image=photo, anchor=anchor)
+
+        draw_glyph(card.rank, self.TOP_RANK)
+        draw_glyph(card.suit, self.CENTER_SUIT)
+        draw_glyph(card.rank, self.BOTTOM_RANK)
 
 
 class StrategyApp:
@@ -75,17 +186,24 @@ class StrategyApp:
         table = tk.Frame(main, bg=TABLE, padx=20, pady=15)
         table.grid(row=3, sticky="nsew")
         table.columnconfigure((0, 1), weight=1, uniform="hands")
+        table.rowconfigure(1, weight=1)
         tk.Label(table, text="YOUR HAND", bg=TABLE, fg=TEXT,
                  font=("TkDefaultFont", 11, "bold")).grid(row=0, column=0, pady=(0, 8))
         tk.Label(table, text="DEALER UPCARD", bg=TABLE, fg=TEXT,
                  font=("TkDefaultFont", 11, "bold")).grid(row=0, column=1, pady=(0, 8))
         player_row = tk.Frame(table, bg=TABLE)
-        player_row.grid(row=1, column=0)
+        player_row.grid(row=1, column=0, sticky="nsew")
+        player_row.columnconfigure((0, 1), weight=1, uniform="player_cards")
+        player_row.rowconfigure(0, weight=1)
         self.player_cards = [CardCanvas(player_row), CardCanvas(player_row)]
         for column, canvas in enumerate(self.player_cards):
-            canvas.grid(row=0, column=column, padx=4)
-        self.dealer_card = CardCanvas(table)
-        self.dealer_card.grid(row=1, column=1)
+            canvas.grid(row=0, column=column, padx=4, sticky="nsew")
+        dealer_row = tk.Frame(table, bg=TABLE)
+        dealer_row.grid(row=1, column=1, sticky="nsew")
+        dealer_row.columnconfigure((0, 1, 2, 3), weight=1, uniform="dealer_card_space")
+        dealer_row.rowconfigure(0, weight=1)
+        self.dealer_card = CardCanvas(dealer_row)
+        self.dealer_card.grid(row=0, column=1, columnspan=2, padx=4, sticky="nsew")
         self.hand_var = tk.StringVar(master=self.root)
         tk.Label(table, textvariable=self.hand_var, bg=TABLE, fg=TEXT,
                  font=("TkDefaultFont", 12, "bold")).grid(row=2, column=0, pady=(10, 0))
