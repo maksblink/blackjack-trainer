@@ -11,6 +11,7 @@ A separate desktop mode trains the Hi-Lo running count.
 - Interactive terminal training with immediate feedback and session statistics.
 - Desktop GUI with drawn cards, action buttons, keyboard shortcuts, and a quit confirmation.
 - Hi-Lo counting practice with one card at a time and running-count feedback.
+- Separate series mode with configurable length, hidden cards at answer time, and series statistics.
 - Reproducible shuffles and optional question limits.
 
 - Immutable cards with validated ranks and suits.
@@ -144,6 +145,39 @@ and confirmation; canceling preserves the current state.
 This mode trains running count only. It does not calculate true count, simulate
 rounds, recommend bets, or save session results. It uses the same responsive
 card renderer as the strategy GUI.
+
+## Hi-Lo series GUI
+
+```bash
+python -m blackjack_trainer count-series
+python -m blackjack_trainer count-series --series-size 20
+python -m blackjack_trainer count-series -n 5 --seed 42 --rounds 10
+```
+
+This separate mode shows one card at a time, with 10 cards per series by default.
+`--series-size` (or `-n`) accepts a positive integer. Press Space or click Next
+card to replace the current card. After viewing the last card, press Space or
+click Finish series to hide it and open the answer field. There is no card
+history. Enter checks your cumulative running count; after feedback, Enter or
+Next series starts another series. Esc opens the quit confirmation.
+
+The count carries over between series, including after a wrong answer: continue
+from the correct count in the feedback. Cards are drawn without replacement.
+A series never spans two shoes: its actual length is the smaller of the requested
+size and the number of cards left. For example, a six-deck shoe with size 10
+produces 31 full series and a final series of 2 cards. A size larger than the
+shoe produces one series of 312 cards. Only starting the next series after the
+last answer reshuffles the shoe and resets the count. The first card of the
+new shoe is then included in the new count.
+
+Statistics count **answered series**, not individual cards: correct/incorrect,
+accuracy, current/best correct streak, and mean absolute error (the average
+absolute difference between submitted and correct counts). Cards checked counts
+cards in answered series; cards shown includes any unfinished series. Invalid
+input and repeated submissions do not change the score. `--rounds` limits the
+number of answered series. Unfinished series are not scored. Statistics persist
+across shoes, appear in the quit summary, and reset when the application closes;
+no results are saved to disk.
 
 ## Use the card and shoe models
 
