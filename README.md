@@ -11,6 +11,7 @@ A separate desktop mode trains the Hi-Lo running count.
 - Interactive terminal training with immediate feedback and session statistics.
 - Desktop GUI with drawn cards, action buttons, keyboard shortcuts, and a quit confirmation.
 - Hi-Lo counting practice with one card at a time and running-count feedback.
+- Full-table counting with automated player decisions and a hidden dealer card.
 - Separate series mode with configurable length, hidden cards at answer time, and series statistics.
 - Reproducible shuffles and optional question limits.
 
@@ -178,6 +179,49 @@ input and repeated submissions do not change the score. `--rounds` limits the
 number of answered series. Unfinished series are not scored. Statistics persist
 across shoes, appear in the quit summary, and reset when the application closes;
 no results are saved to disk.
+
+## Hi-Lo table GUI
+
+```bash
+python -m blackjack_trainer count-table
+python -m blackjack_trainer count-table --players 5
+python -m blackjack_trainer count-table --players 3 --seed 42 --rounds 10
+```
+
+Watch a full table with 1–7 players (3 by default) and a dealer. Space or Next
+step advances one deal, action, or reveal. Players automatically follow the
+project's basic strategy. The rules are six decks, H17, double after split,
+dealer peek, no surrender, and at most four hands per player. Split aces receive
+one additional card each and cannot be resplit. Other pairs may be resplit up
+to the four-hand limit. A split-hand 21 is not a natural blackjack.
+
+The dealer's hole card is dealt face down and contributes to the running count
+**only when revealed**. A dealer blackjack is revealed after the initial deal
+and ends play immediately. Otherwise players finish first, followed by the
+dealer. The dealer hits soft 17. When every player hand is bust or a natural,
+the hole card is still revealed but no additional dealer draws are needed.
+
+At round end, Space hides the table and opens the running-count question.
+Enter checks the answer; the next Enter starts a new round. The count carries
+over between rounds until a shuffle, including after an incorrect answer.
+Continue from the correct count in the feedback. There is no betting or bankroll
+simulation. For large tables or split hands, use the vertical scrollbar.
+
+Rounds never reshuffle midway. A round is privately planned against the remaining
+shoe; if there are not enough cards to finish it, those remaining cards are
+not exposed, a new shoe is shuffled, and the count resets before dealing.
+Future cards and the planned count are not displayed. Cards leave the real shoe
+only as each dealing step is shown. The screen announces a new shoe before its
+first deal. Unlike series mode, table mode may therefore leave an unused tail.
+
+Statistics count answered rounds: correct/incorrect, accuracy, current/best
+correct streak, mean absolute count error, and cards seen/checked. Cards checked
+covers answered rounds; cards seen also includes exposed cards in an unfinished
+round. A face-down card is not yet seen. Moving already exposed cards during a
+split never counts them again. Invalid input and repeated submissions do not
+change statistics. `--rounds` limits answered rounds. Esc or Quit shows a summary
+and confirmation; canceling preserves the table. Statistics persist across
+shuffles but are not saved after closing the application.
 
 ## Use the card and shoe models
 
