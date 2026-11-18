@@ -18,16 +18,21 @@ def positive_integer(value: str) -> int:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Practice blackjack opening decisions in a terminal or GUI.")
-    parser.add_argument("mode", nargs="?", choices=["cli", "gui"], default="cli")
+    parser = argparse.ArgumentParser(description="Practice blackjack basic strategy or Hi-Lo running counts.")
+    parser.add_argument("mode", nargs="?", choices=["cli", "gui", "count"], default="cli")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("--seed", type=int, help="Use a reproducible shuffle sequence")
     parser.add_argument("--rounds", type=positive_integer, help="Finish after this many answered questions")
     args = parser.parse_args()
-    if args.mode == "gui":
+    if args.mode in ("gui", "count"):
         try:
-            from blackjack_trainer.gui import launch_gui
+            if args.mode == "count":
+                from blackjack_trainer.counting_gui import launch_counting_gui as launch_gui
+            else:
+                from blackjack_trainer.gui import launch_gui
         except ModuleNotFoundError as error:
+            if error.name == "PIL":
+                parser.exit(2, "GUI modes require Pillow. Install with: python -m pip install -e .\n")
             if error.name not in ("tkinter", "_tkinter"):
                 raise
             parser.exit(2, "GUI mode requires Tkinter for the selected Python interpreter. "

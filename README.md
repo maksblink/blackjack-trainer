@@ -4,10 +4,13 @@ Practice blackjack opening decisions in the terminal or a Tkinter desktop GUI. C
 Double, or Split, check the recommended action, and track session accuracy.
 The trainer uses a six-deck shoe and a fixed H17/DAS/no-surrender strategy.
 
+A separate desktop mode trains the Hi-Lo running count.
+
 ## Features
 
 - Interactive terminal training with immediate feedback and session statistics.
 - Desktop GUI with drawn cards, action buttons, keyboard shortcuts, and a quit confirmation.
+- Hi-Lo counting practice with one card at a time and running-count feedback.
 - Reproducible shuffles and optional question limits.
 
 - Immutable cards with validated ranks and suits.
@@ -26,8 +29,9 @@ The trainer uses a six-deck shoe and a fixed H17/DAS/no-surrender strategy.
 - Python 3.10 or newer
 - GUI mode: Tkinter and a graphical desktop
 
-No third-party runtime dependencies are required. Development and testing use
-pytest, installed through the `dev` extra.
+Card rendering uses Pillow (installed with the package) and DejaVu Sans.
+On Ubuntu, install the font with `sudo apt install fonts-dejavu-core`.
+Development and testing use pytest, installed through the `dev` extra.
 
 ## Run
 
@@ -114,6 +118,32 @@ terminal mode remains available.
 
 In PyCharm, select module `blackjack_trainer`, parameter `gui`, and the project's
 `.venv` interpreter. Use the project root as the working directory.
+
+## Hi-Lo counting GUI
+
+```bash
+python -m blackjack_trainer count
+python -m blackjack_trainer count --seed 42 --rounds 20
+```
+
+Start from zero. Each displayed card is drawn from a six-deck shoe without
+replacement. Add +1 for 2–6, zero for 7–9, and −1 for 10/J/Q/K/A. Enter the
+**cumulative running count**, including the current card, then click Check
+or press Enter. After feedback, click Next card or press Enter again.
+Each card must be answered before proceeding; this mode checks every card.
+Invalid input does not consume a card or change the score. Each card is scored
+once. A wrong answer never changes the actual count: continue from the correct
+count shown in the feedback.
+
+After all 312 cards have been checked, advancing starts a freshly shuffled
+shoe. The count resets to zero before its first card is counted, and a new-shoe
+message appears. Session statistics persist across shoes. `--rounds` limits
+answered cards; the final feedback stays visible. Esc or Quit opens a summary
+and confirmation; canceling preserves the current state.
+
+This mode trains running count only. It does not calculate true count, simulate
+rounds, recommend bets, or save session results. It uses the same responsive
+card renderer as the strategy GUI.
 
 ## Use the card and shoe models
 
