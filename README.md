@@ -214,6 +214,33 @@ Future cards and the planned count are not displayed. Cards leave the real shoe
 only as each dealing step is shown. The screen announces a new shoe before its
 first deal. Unlike series mode, table mode may therefore leave an unused tail.
 
+### Automatic table tempo
+
+```bash
+# Independently sampled delay before every step (seconds):
+python -m blackjack_trainer count-table --players 3 --interval-min 0.5 --interval-max 3
+# Fixed delay:
+python -m blackjack_trainer count-table --interval-min 1 --interval-max 1
+```
+
+Provide both bounds, with `0 < min <= max`, to enable automatic table play.
+Without them, Space retains manual step-by-step control. These options apply
+only to `count-table`. Delays are sampled uniformly and independently before
+each deal, action, reveal, and the transition from the completed table to the
+answer field. Equal bounds give a constant delay. Scheduling uses millisecond
+resolution (at least 1 ms); actual rendering and system load can add latency.
+
+Space or the Pause/Resume button pauses or resumes automatic play. Resuming
+starts a fresh full delay from the configured range. At the question the timer
+stops and the table is hidden. Answer with Enter; after feedback, press Enter or
+Next round to start the next round and restart automatic play. The final
+answered round remains on screen when `--rounds` is reached.
+
+The exit confirmation suspends the timer. Cancel restores the prior running or
+paused state; confirming exit cancels pending callbacks. Tempo uses its own
+random generator, so changing delays does not change shoe order for the same
+`--seed`. Statistics and scoring are the same in manual and automatic mode.
+
 Statistics count answered rounds: correct/incorrect, accuracy, current/best
 correct streak, mean absolute count error, and cards seen/checked. Cards checked
 covers answered rounds; cards seen also includes exposed cards in an unfinished

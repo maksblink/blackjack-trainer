@@ -1,11 +1,13 @@
 """A scrollable table view for manual, stepwise Hi-Lo practice."""
 
+import random
 import tkinter as tk
 from tkinter import messagebox, ttk
 
 from blackjack_trainer.counting_table import CountingTableSession
 from blackjack_trainer.gui import BG, TABLE, TEXT, MUTED, ACCENT, CardCanvas
 from blackjack_trainer.hands import evaluate_hand
+from blackjack_trainer.step_timer import StepTimer, validate_intervals
 
 
 class TableCard(CardCanvas):
@@ -32,7 +34,10 @@ class TableCard(CardCanvas):
 
 
 class CountingTableApp:
-    def __init__(self, root, session):
+    def __init__(self, root, session, *, interval_min=None, interval_max=None, seed=None):
+        validate_intervals(interval_min, interval_max)
+        self._timer = None if interval_min is None else StepTimer(
+            root, self._auto_step, interval_min, interval_max, rng=random.Random(seed))
         self.root, self.session = root, session
         self._closing = False
         root.title('Blackjack Trainer — Hi-Lo Table')
@@ -78,7 +83,9 @@ class CountingTableApp:
         self.quit_button.pack(side='right')
         self.stats = tk.StringVar(root)
         tk.Label(main, textvariable=self.stats, bg=BG, fg=MUTED, justify='left').grid(row=6, sticky='w', pady=8)
-        tk.Label(main, text='Space: next step / hide table · Enter: check / next round · Esc: quit',
+        hint = ('Space: pause / resume · Enter: check / next round · Esc: quit' if self._timer else
+                'Space: next step / hide table · Enter: check / next round · Esc: quit')
+        tk.Label(main, text=hint,
                  bg=BG, fg=MUTED).grid(row=7, sticky='w')
         for widget in (root, self.entry, self.check, self.next_button, self.quit_button):
             widget.bind('<space>', self.on_space)
@@ -87,6 +94,9 @@ class CountingTableApp:
             widget.bind('<Escape>', self.on_escape)
         root.protocol('WM_DELETE_WINDOW', self.on_close)
         self.refresh()
+        if self._timer:
+            self._timer.start()
+            self._update_auto_controls()
 
     def statistics_text(self):
         s = self.session
@@ -162,13 +172,48 @@ class CountingTableApp:
             self.next_button.state(['!disabled'])
             self.next_button.focus_set()
 
+        self._update_auto_controls()
+
+    def _update_auto_controls(self):
+        timer = getattr(self, '_timer', None)
+        if timer is None:
+            return
+        s = self.session
+        if s.phase in ('playing', 'round_end'):
+            paused = not timer.running
+            self.next_button.configure(text='Resume' if paused else 'Pause')
+            mode = 'Paused' if paused else f'Auto: {timer.minimum:g}–{timer.maximum:g} s'
+            message = s.message.replace('Press Space to deal.', 'Automatic play starts shortly.')
+            if s.phase == 'round_end':
+                message = 'Round complete. The table will be hidden before the question.'
+            self.message.set(f'{mode} · {message}')
+
+    def _auto_step(self):
+        if self._closing or self.session.phase not in ('playing', 'round_end'):
+            return False
+        if self.session.advance():
+            self.answer.set('')
+            self.refresh()
+        return self.session.phase in ('playing', 'round_end')
+
     def on_next(self):
         if self._closing:
+            return
+        timer = getattr(self, '_timer', None)
+        if timer is not None and self.session.phase in ('playing', 'round_end'):
+            if timer.running:
+                timer.pause()
+            else:
+                timer.start()
+            self._update_auto_controls()
             return
         changed = self.session.start_round() if self.session.phase == 'feedback' else self.session.advance()
         if changed:
             self.answer.set('')
             self.refresh()
+            if timer is not None and self.session.phase in ('playing', 'round_end'):
+                timer.start()
+                self._update_auto_controls()
 
     def on_check(self):
         if self._closing or self.session.phase != 'answer':
@@ -200,23 +245,41 @@ class CountingTableApp:
         if self._closing:
             return
         self._closing = True
+        timer = getattr(self, '_timer', None)
+        was_running = timer is not None and timer.running
+        if timer is not None:
+            timer.pause()
+        accepted = False
         try:
             if messagebox.askokcancel('End session', self.statistics_text() + '\n\nClose the trainer?', parent=self.root):
+                accepted = True
+                if timer is not None:
+                    timer.close()
                 self.root.destroy()
         finally:
             self._closing = False
+            if not accepted and timer is not None:
+                if was_running and self.session.phase in ('playing', 'round_end'):
+                    timer.start()
+                self._update_auto_controls()
 
 
-def launch_counting_table_gui(*, players=3, seed=None, round_limit=None):
+def launch_counting_table_gui(*, players=3, seed=None, round_limit=None,
+                              interval_min=None, interval_max=None):
+    validate_intervals(interval_min, interval_max)
     session = CountingTableSession(players=players, seed=seed, round_limit=round_limit)
     try:
         root = tk.Tk()
     except tk.TclError as error:
         raise RuntimeError('Cannot open the GUI. Use a graphical desktop with working Tcl/Tk.') from error
+    app = None
     try:
-        CountingTableApp(root, session)
+        app = CountingTableApp(root, session, interval_min=interval_min,
+                               interval_max=interval_max, seed=seed)
         root.mainloop()
     finally:
+        if app is not None and app._timer is not None:
+            app._timer.close()
         try:
             root.destroy()
         except tk.TclError:

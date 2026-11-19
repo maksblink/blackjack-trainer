@@ -3,6 +3,7 @@
 import argparse
 
 from blackjack_trainer import __version__
+from blackjack_trainer.step_timer import validate_intervals
 from blackjack_trainer.cli import run_cli
 from blackjack_trainer.training import StrategySession
 
@@ -27,7 +28,18 @@ def main() -> None:
                         help="Cards per series in count-series mode (default: 10)")
     parser.add_argument("--players", type=positive_integer, choices=range(1, 8), default=None,
                         help="Players in count-table mode, from 1 to 7 (default: 3)")
+    parser.add_argument("--interval-min", type=float, default=None,
+                        help="Minimum delay in seconds for count-table automatic play")
+    parser.add_argument("--interval-max", type=float, default=None,
+                        help="Maximum delay in seconds for count-table automatic play")
     args = parser.parse_args()
+    if args.interval_min is not None or args.interval_max is not None:
+        if args.mode != "count-table":
+            parser.error("--interval-min / --interval-max are only available in count-table mode")
+        try:
+            validate_intervals(args.interval_min, args.interval_max)
+        except ValueError as error:
+            parser.error(str(error))
     if args.players is not None and args.mode != "count-table":
         parser.error("--players is only available in count-table mode")
     if args.series_size is not None and args.mode != "count-series":
@@ -51,8 +63,11 @@ def main() -> None:
                            "Check it with: python -m tkinter\n")
         try:
             if args.mode == "count-table":
+                timing = {} if args.interval_min is None else {
+                    "interval_min": args.interval_min, "interval_max": args.interval_max,
+                }
                 launch_gui(seed=args.seed, round_limit=args.rounds,
-                           players=args.players if args.players is not None else 3)
+                           players=args.players if args.players is not None else 3, **timing)
             elif args.mode == "count-series":
                 launch_gui(seed=args.seed, round_limit=args.rounds,
                            series_size=args.series_size if args.series_size is not None else 10)
