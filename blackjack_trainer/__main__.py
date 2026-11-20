@@ -20,7 +20,7 @@ def positive_integer(value: str) -> int:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Practice blackjack basic strategy or Hi-Lo running counts.")
-    parser.add_argument("mode", nargs="?", choices=["cli", "gui", "count", "count-series", "count-table"], default="cli")
+    parser.add_argument("mode", nargs="?", choices=["cli", "gui", "count", "count-series", "count-table", "menu"], default="cli")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("--seed", type=int, help="Use a reproducible shuffle sequence")
     parser.add_argument("--rounds", type=positive_integer, help="Finish after this many answered questions")
@@ -44,9 +44,11 @@ def main() -> None:
         parser.error("--players is only available in count-table mode")
     if args.series_size is not None and args.mode != "count-series":
         parser.error("--series-size / -n is only available in count-series mode")
-    if args.mode in ("gui", "count", "count-series", "count-table"):
+    if args.mode in ("gui", "count", "count-series", "count-table", "menu"):
         try:
-            if args.mode == "count-table":
+            if args.mode == "menu":
+                from blackjack_trainer.menu import launch_menu as launch_gui
+            elif args.mode == "count-table":
                 from blackjack_trainer.counting_table_gui import launch_counting_table_gui as launch_gui
             elif args.mode == "count-series":
                 from blackjack_trainer.counting_series_gui import launch_counting_series_gui as launch_gui

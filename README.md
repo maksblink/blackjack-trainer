@@ -6,8 +6,34 @@ The trainer uses a six-deck shoe and a fixed H17/DAS/no-surrender strategy.
 
 A separate desktop mode trains the Hi-Lo running count.
 
+## Start menu
+
+```bash
+python -m blackjack_trainer menu
+```
+
+Choose Basic strategy, Hi-Lo single cards, Hi-Lo card series, or Hi-Lo full
+table. Set an optional question limit and seed, the series length, or the number
+of players and table tempo. Only settings relevant to the selected mode are
+enabled. Leave the limit blank for an unlimited session and the seed blank for
+a fresh shuffle. The limit counts hands, cards, series, or rounds respectively.
+Automatic table tempo requires positive minimum and maximum delays, with the
+minimum no larger than the maximum. Equal values give a fixed delay.
+
+Click Start or press Enter. Invalid fields show a message without starting a
+session. Closing a trainer through its existing confirmation returns to the
+menu; canceling keeps the trainer open. Menu settings are retained while the
+launcher stays open, but each Start creates a fresh session and statistics.
+Settings and results are not saved to disk. Quit in the menu closes the app.
+
+`python -m blackjack_trainer menu --seed 42 --rounds 20` prefills the common
+fields. All existing direct commands remain available, and omitting the mode
+still starts the terminal strategy trainer. In PyCharm, run the module
+`blackjack_trainer` with parameter `menu`.
+
 ## Features
 
+- Desktop start menu for selecting training modes and session settings.
 - Interactive terminal training with immediate feedback and session statistics.
 - Desktop GUI with drawn cards, action buttons, keyboard shortcuts, and a quit confirmation.
 - Hi-Lo counting practice with one card at a time and running-count feedback.
